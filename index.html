@@ -3,63 +3,49 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <title>Transcritor de Áudio IA</title>
-
-  <!-- CSS -->
   <link rel="stylesheet" href="style.css" />
-
 </head>
 <body>
 
-  <main class="container">
-    <h1>🎙️ Transcritor de Áudio IA</h1>
-    <p>Grave ou importe um áudio para transcrição</p>
+<main class="container">
+  <h1>🎙️ Transcritor de Áudio IA</h1>
+  <p>Grave ou importe um áudio para transcrição</p>
 
-    <!-- BOTÕES -->
-    <div class="buttons">
-      <button id="recordBtn">🎤 Gravar Áudio</button>
+  <div class="buttons">
+    <button id="recordBtn">🎤 Gravar Áudio</button>
 
-      <label for="audioInput" class="import-btn">
-        📂 Importar Áudio
-      </label>
+    <label for="audioInput" class="import-btn">
+      📂 Importar Áudio
+    </label>
 
-      <!-- INPUT CORRIGIDO -->
-      <input
-        type="file"
-        id="audioInput"
-        accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.webm,video/*"
-        hidden
-      />
-    </div>
+    <input
+      type="file"
+      id="audioInput"
+      accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.webm,video/*"
+      hidden
+    />
+  </div>
 
-    <!-- INFO DO ARQUIVO -->
-    <div id="fileInfo" class="info hidden"></div>
+  <div id="fileInfo" class="info hidden"></div>
 
-    <!-- TRANSCRIÇÃO -->
-    <button id="transcribeBtn" disabled>
-      📝 Transcrever
-    </button>
+  <button id="transcribeBtn" class="disabled">
+    📝 Transcrever
+  </button>
 
-    <!-- RESULTADO -->
-    <section id="result" class="hidden">
-      <h2>Resultado</h2>
-      <pre id="output"></pre>
-      <button id="copyBtn">📋 Copiar texto</button>
-    </section>
+  <section id="result" class="hidden">
+    <h2>Resultado</h2>
+    <pre id="output"></pre>
+    <button id="copyBtn">📋 Copiar texto</button>
+  </section>
 
-    <!-- MENSAGENS -->
-    <div id="message" class="message"></div>
+  <div id="message" class="message"></div>
 
-    <footer>
-      <small>
-        Limite: 4MB · MP3 / WAV / M4A · HTTPS obrigatório
-      </small>
-    </footer>
-  </main>
+  <footer>
+    <small>MP3 / WAV / M4A · Mobile OK</small>
+  </footer>
+</main>
 
-  <!-- SCRIPT -->
-  <script src="script.js"></script>
-
+<script src="script.js"></script>
 </body>
 </html>
