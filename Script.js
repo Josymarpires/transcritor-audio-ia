@@ -1,118 +1,70 @@
 const audioInput = document.getElementById("audioInput");
-const recordBtn = document.getElementById("recordBtn");
 const transcribeBtn = document.getElementById("transcribeBtn");
 const output = document.getElementById("output");
-const result = document.getElementById("result");
-const fileInfo = document.getElementById("fileInfo");
 const message = document.getElementById("message");
-const copyBtn = document.getElementById("copyBtn");
+const result = document.getElementById("result");
+
+const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB (seguro para Vercel)
 
 let selectedFile = null;
 
-// ==============================
-// CONFIGURAÇÕES IMPORTANTES
-// ==============================
-
-// Limite real seguro da Vercel
-const MAX_UPLOAD_MB = 4; // NÃO aumente isso
-const MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024;
-
-// ==============================
-// IMPORTAÇÃO DE ARQUIVO
-// ==============================
 audioInput.addEventListener("change", () => {
-  const file = audioInput.files[0];
+  selectedFile = audioInput.files[0];
   message.textContent = "";
-  result.classList.add("hidden");
-
-  if (!file) return;
-
-  const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-
-  // Validação de tipo
-  if (!file.type.startsWith("audio")) {
-    showError("Arquivo inválido. Selecione um áudio.");
-    audioInput.value = "";
-    return;
-  }
-
-  // BLOQUEIO ANTES DO ERRO 413
-  if (file.size > MAX_UPLOAD_BYTES) {
-    showError(
-      `Arquivo muito grande (${sizeMB} MB).\n\n` +
-      `⚠️ Limite atual: ${MAX_UPLOAD_MB} MB.\n\n` +
-      `Para áudios longos (ex: 8 horas), é necessário envio em partes (chunking).`
-    );
-    audioInput.value = "";
-    return;
-  }
-
-  selectedFile = file;
-  fileInfo.textContent = `📎 ${file.name} (${sizeMB} MB)`;
-  fileInfo.classList.remove("hidden");
-  transcribeBtn.disabled = false;
 });
 
-// ==============================
-// TRANSCRIÇÃO ONLINE
-// ==============================
 transcribeBtn.addEventListener("click", async () => {
   if (!selectedFile) {
-    showError("Selecione um áudio primeiro.");
+    message.textContent = "Selecione um áudio primeiro.";
     return;
   }
 
   transcribeBtn.disabled = true;
   transcribeBtn.textContent = "Transcrevendo...";
-  message.textContent = "";
+  output.textContent = "";
 
-  const formData = new FormData();
-  formData.append("audio", selectedFile);
+  const chunks = sliceFile(selectedFile);
+  let textoFinal = "";
 
-  try {
+  for (let i = 0; i < chunks.length; i++) {
+    message.textContent = `Enviando parte ${i + 1} de ${chunks.length}...`;
+
+    const formData = new FormData();
+    formData.append("audio", chunks[i]);
+
     const response = await fetch("/transcrever", {
       method: "POST",
       body: formData
     });
 
     if (!response.ok) {
-      throw new Error(`Erro ${response.status}`);
+      message.textContent = "Erro durante a transcrição.";
+      transcribeBtn.disabled = false;
+      return;
     }
 
     const data = await response.json();
-
-    output.textContent = data.texto || "Nenhum texto retornado.";
-    result.classList.remove("hidden");
-
-  } catch (err) {
-    showError(
-      "Erro ao transcrever.\n\n" +
-      "Se o áudio for longo, use divisão em partes.\n\n" +
-      `Detalhe técnico: ${err.message}`
-    );
-  } finally {
-    transcribeBtn.disabled = false;
-    transcribeBtn.textContent = "📝 Transcrever";
+    textoFinal += data.texto + " ";
   }
+
+  output.textContent = textoFinal.trim();
+  result.classList.remove("hidden");
+  message.textContent = "✅ Transcrição concluída!";
+  transcribeBtn.textContent = "📝 Transcrever";
+  transcribeBtn.disabled = false;
 });
 
-// ==============================
-// COPIAR TEXTO
-// ==============================
-copyBtn.addEventListener("click", () => {
-  navigator.clipboard.writeText(output.textContent);
-  showMessage("Texto copiado!");
-});
+// =====================
+// FUNÇÃO DE CORTE
+// =====================
+function sliceFile(file) {
+  const chunks = [];
+  let start = 0;
 
-// ==============================
-// UTILITÁRIOS
-// ==============================
-function showError(msg) {
-  message.textContent = msg;
-  message.style.color = "red";
-}
+  while (start < file.size) {
+    chunks.push(file.slice(start, start + CHUNK_SIZE));
+    start += CHUNK_SIZE;
+  }
 
-function showMessage(msg) {
-  message.textContent = msg;
-  message.style.color = "green";
+  return chunks;
 }
