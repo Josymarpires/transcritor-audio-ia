@@ -1,6 +1,3 @@
-// ================================
-// ELEMENTOS
-// ================================
 const recordBtn = document.getElementById('recordBtn');
 const audioInput = document.getElementById('audioInput');
 const transcribeBtn = document.getElementById('transcribeBtn');
@@ -10,33 +7,31 @@ const result = document.getElementById('result');
 const message = document.getElementById('message');
 const copyBtn = document.getElementById('copyBtn');
 
-// ================================
-// ESTADO
-// ================================
+let audioFile = null;
 let mediaRecorder;
 let audioChunks = [];
-let audioBlob = null;
-let audioFile = null;
 
-// ================================
-// UTIL
-// ================================
-function showMessage(text, error = false) {
-  message.textContent = text;
-  message.style.color = error ? 'red' : 'green';
-}
+// ---------- IMPORTAR ARQUIVO ----------
+audioInput.addEventListener('change', () => {
+  if (!audioInput.files.length) return;
 
-// ================================
-// GRAVAÇÃO
-// ================================
+  audioFile = audioInput.files[0];
+
+  fileInfo.textContent = `Arquivo: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)`;
+  fileInfo.classList.remove('hidden');
+
+  transcribeBtn.classList.remove('disabled');
+});
+
+// ---------- GRAVAÇÃO ----------
 recordBtn.addEventListener('click', async () => {
-  try {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      recordBtn.textContent = '🎤 Gravar Áudio';
-      return;
-    }
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    recordBtn.textContent = '🎤 Gravar Áudio';
+    return;
+  }
 
+  try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
     audioChunks = [];
@@ -44,83 +39,51 @@ recordBtn.addEventListener('click', async () => {
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
 
     mediaRecorder.onstop = () => {
-      audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-      audioFile = null;
-      fileInfo.textContent = `🎤 Áudio gravado (${(audioBlob.size / 1024 / 1024).toFixed(2)} MB)`;
+      audioFile = new File(audioChunks, 'gravacao.webm', { type: 'audio/webm' });
+
+      fileInfo.textContent = `Gravação pronta (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)`;
       fileInfo.classList.remove('hidden');
-      transcribeBtn.disabled = false;
+
+      transcribeBtn.classList.remove('disabled');
     };
 
     mediaRecorder.start();
-    recordBtn.textContent = '⏹ Parar gravação';
-    showMessage('Gravando áudio...');
+    recordBtn.textContent = '⏹️ Parar';
+
   } catch (err) {
-    console.error(err);
-    showMessage('Erro ao acessar microfone', true);
+    alert('Permissão de microfone negada');
   }
 });
 
-// ================================
-// IMPORTAR ARQUIVO
-// ================================
-audioInput.addEventListener('change', () => {
-  const file = audioInput.files[0];
-  if (!file) return;
-
-  const maxSize = 4 * 1024 * 1024; // 4MB (evita 413)
-  if (file.size > maxSize) {
-    showMessage('Arquivo muito grande (máx 4MB)', true);
-    audioInput.value = '';
-    return;
-  }
-
-  audioFile = file;
-  audioBlob = null;
-
-  fileInfo.textContent = `📂 ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
-  fileInfo.classList.remove('hidden');
-  transcribeBtn.disabled = false;
-  showMessage('Arquivo carregado com sucesso');
-});
-
-// ================================
-// TRANSCRIÇÃO
-// ================================
+// ---------- TRANSCRIÇÃO ----------
 transcribeBtn.addEventListener('click', async () => {
-  const audio = audioFile || audioBlob;
-  if (!audio) {
-    showMessage('Nenhum áudio disponível', true);
-    return;
-  }
+  if (!audioFile) return;
+
+  transcribeBtn.classList.add('disabled');
+  message.textContent = 'Transcrevendo...';
 
   const formData = new FormData();
-  formData.append('audio', audio, 'audio.webm');
-
-  transcribeBtn.disabled = true;
-  showMessage('Transcrevendo...');
+  formData.append('file', audioFile);
 
   try {
-    const res = await fetch('/transcrever', {
+    const res = await fetch('/api/transcribe', {
       method: 'POST',
       body: formData
     });
 
     const data = await res.json();
-    output.textContent = data.texto || 'Sem retorno';
+
+    output.textContent = data.text || 'Erro na transcrição';
     result.classList.remove('hidden');
-    showMessage('Transcrição concluída');
-  } catch (err) {
-    console.error(err);
-    showMessage('Erro na transcrição', true);
-  } finally {
-    transcribeBtn.disabled = false;
+    message.textContent = '';
+
+  } catch (e) {
+    message.textContent = 'Erro ao transcrever';
   }
 });
 
-// ================================
-// COPIAR TEXTO
-// ================================
+// ---------- COPIAR ----------
 copyBtn.addEventListener('click', () => {
   navigator.clipboard.writeText(output.textContent);
-  showMessage('Texto copiado!');
+  alert('Texto copiado!');
 });
