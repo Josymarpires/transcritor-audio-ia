@@ -1,70 +1,128 @@
+// ===============================
+// ELEMENTOS
+// ===============================
+const recordBtn = document.getElementById("recordBtn");
 const audioInput = document.getElementById("audioInput");
 const transcribeBtn = document.getElementById("transcribeBtn");
+const fileInfo = document.getElementById("fileInfo");
 const output = document.getElementById("output");
-const message = document.getElementById("message");
 const result = document.getElementById("result");
-
-const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB (seguro para Vercel)
+const message = document.getElementById("message");
 
 let selectedFile = null;
+let mediaRecorder = null;
+let audioChunks = [];
 
+// ===============================
+// IMPORTAR ARQUIVO (FIX MOBILE)
+// ===============================
 audioInput.addEventListener("change", () => {
-  selectedFile = audioInput.files[0];
-  message.textContent = "";
-});
-
-transcribeBtn.addEventListener("click", async () => {
-  if (!selectedFile) {
-    message.textContent = "Selecione um áudio primeiro.";
+  if (!audioInput.files || !audioInput.files[0]) {
+    showMessage("❌ Nenhum arquivo selecionado");
     return;
   }
 
+  selectedFile = audioInput.files[0];
+
+  fileInfo.classList.remove("hidden");
+  fileInfo.innerHTML = `
+    📁 <strong>${selectedFile.name}</strong><br>
+    📏 ${(selectedFile.size / 1024 / 1024).toFixed(2)} MB<br>
+    🎧 ${selectedFile.type || "tipo desconhecido"}
+  `;
+
+  transcribeBtn.disabled = false;
+  showMessage("✅ Arquivo carregado com sucesso");
+});
+
+// ===============================
+// GRAVAÇÃO DE ÁUDIO (FIX MOBILE)
+// ===============================
+recordBtn.addEventListener("click", async () => {
+  try {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+      recordBtn.textContent = "🎤 Gravar Áudio";
+      return;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+      selectedFile = new File([audioBlob], "gravacao.webm", {
+        type: "audio/webm"
+      });
+
+      fileInfo.classList.remove("hidden");
+      fileInfo.innerHTML = `
+        🎤 <strong>Gravação concluída</strong><br>
+        📏 ${(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+      `;
+
+      transcribeBtn.disabled = false;
+      showMessage("✅ Gravação pronta para transcrição");
+    };
+
+    mediaRecorder.start();
+    recordBtn.textContent = "⏹️ Parar Gravação";
+    showMessage("🎙️ Gravando...");
+
+  } catch (err) {
+    console.error(err);
+    showMessage("❌ Permissão de microfone negada ou não suportada");
+  }
+});
+
+// ===============================
+// ENVIAR PARA TRANSCRIÇÃO
+// ===============================
+transcribeBtn.addEventListener("click", async () => {
+  if (!selectedFile) {
+    showMessage("❌ Nenhum áudio selecionado");
+    return;
+  }
+
+  showMessage("⏳ Enviando para transcrição...");
   transcribeBtn.disabled = true;
-  transcribeBtn.textContent = "Transcrevendo...";
-  output.textContent = "";
 
-  const chunks = sliceFile(selectedFile);
-  let textoFinal = "";
+  const formData = new FormData();
+  formData.append("audio", selectedFile);
 
-  for (let i = 0; i < chunks.length; i++) {
-    message.textContent = `Enviando parte ${i + 1} de ${chunks.length}...`;
-
-    const formData = new FormData();
-    formData.append("audio", chunks[i]);
-
+  try {
     const response = await fetch("/transcrever", {
       method: "POST",
       body: formData
     });
 
-    if (!response.ok) {
-      message.textContent = "Erro durante a transcrição.";
-      transcribeBtn.disabled = false;
-      return;
+    const data = await response.json();
+
+    if (!data.texto) {
+      throw new Error("Resposta inválida");
     }
 
-    const data = await response.json();
-    textoFinal += data.texto + " ";
-  }
+    output.textContent = data.texto;
+    result.classList.remove("hidden");
+    showMessage("✅ Transcrição concluída");
 
-  output.textContent = textoFinal.trim();
-  result.classList.remove("hidden");
-  message.textContent = "✅ Transcrição concluída!";
-  transcribeBtn.textContent = "📝 Transcrever";
-  transcribeBtn.disabled = false;
+  } catch (err) {
+    console.error(err);
+    showMessage("❌ Erro ao transcrever áudio");
+  } finally {
+    transcribeBtn.disabled = false;
+  }
 });
 
-// =====================
-// FUNÇÃO DE CORTE
-// =====================
-function sliceFile(file) {
-  const chunks = [];
-  let start = 0;
-
-  while (start < file.size) {
-    chunks.push(file.slice(start, start + CHUNK_SIZE));
-    start += CHUNK_SIZE;
-  }
-
-  return chunks;
+// ===============================
+// MENSAGENS
+// ===============================
+function showMessage(msg) {
+  message.textContent = msg;
 }
