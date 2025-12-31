@@ -1,16 +1,9 @@
 {
   "version": 2,
-  "name": "transcritor-audio-ia",
   "functions": {
     "api/transcrever.js": {
-      "maxDuration": 60,
+      "maxDuration": 300,
       "memory": 1024
     }
-  },
-  "routes": [
-    {
-      "src": "/transcrever",
-      "dest": "/api/transcrever"
-    }
-  ]
+  }
 }
