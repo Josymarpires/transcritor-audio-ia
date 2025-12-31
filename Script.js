@@ -11,11 +11,9 @@ let audioFile = null;
 let mediaRecorder = null;
 let chunks = [];
 
-/* =========================
-   IMPORTAR ARQUIVO
-========================= */
+/* ================= IMPORTAR ARQUIVO ================= */
 audioInput.addEventListener("change", () => {
-  if (!audioInput.files || !audioInput.files[0]) return;
+  if (!audioInput.files || !audioInput.files.length) return;
 
   audioFile = audioInput.files[0];
 
@@ -23,16 +21,12 @@ audioInput.addEventListener("change", () => {
     `Arquivo: ${audioFile.name} (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)`;
   fileInfo.classList.remove("hidden");
 
-  // habilita botão
   transcribeBtn.disabled = false;
-  transcribeBtn.classList.remove("disabled");
 });
 
-/* =========================
-   GRAVAÇÃO
-========================= */
+/* ================= GRAVAR ÁUDIO ================= */
 recordBtn.addEventListener("click", async () => {
-  // PARAR gravação
+  // Parar gravação
   if (mediaRecorder && mediaRecorder.state === "recording") {
     mediaRecorder.stop();
     recordBtn.textContent = "🎤 Gravar Áudio";
@@ -42,52 +36,38 @@ recordBtn.addEventListener("click", async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
     chunks = [];
 
     mediaRecorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) {
-        chunks.push(e.data);
-      }
+      if (e.data.size > 0) chunks.push(e.data);
     };
 
     mediaRecorder.onstop = () => {
       audioFile = new File(chunks, "gravacao.webm", {
-        type: "audio/webm"
+        type: "audio/webm",
       });
 
       fileInfo.textContent =
         `Gravação pronta (${(audioFile.size / 1024 / 1024).toFixed(2)} MB)`;
       fileInfo.classList.remove("hidden");
 
-      // habilita botão
       transcribeBtn.disabled = false;
-      transcribeBtn.classList.remove("disabled");
-
-      // encerra microfone
-      stream.getTracks().forEach(track => track.stop());
     };
 
     mediaRecorder.start();
     recordBtn.textContent = "⏹️ Parar";
 
   } catch (err) {
-    alert("Erro ao acessar o microfone. Verifique permissões.");
-    console.error(err);
+    alert("Permita o acesso ao microfone para gravar áudio.");
   }
 });
 
-/* =========================
-   TRANSCRIÇÃO
-========================= */
+/* ================= TRANSCRIÇÃO ================= */
 transcribeBtn.addEventListener("click", async () => {
-  if (!audioFile) {
-    alert("Nenhum áudio carregado");
-    return;
-  }
+  if (!audioFile) return;
 
   transcribeBtn.disabled = true;
-  transcribeBtn.classList.add("disabled");
   message.textContent = "Transcrevendo...";
 
   const formData = new FormData();
@@ -96,32 +76,27 @@ transcribeBtn.addEventListener("click", async () => {
   try {
     const res = await fetch("/api/transcrever", {
       method: "POST",
-      body: formData
+      body: formData,
     });
 
     if (!res.ok) {
-      throw new Error(`Erro ${res.status}`);
+      throw new Error("Erro no backend");
     }
 
     const data = await res.json();
 
-    output.textContent = data.text || "Nenhum texto retornado";
+    output.textContent = data.text || "Erro na transcrição.";
     result.classList.remove("hidden");
     message.textContent = "";
 
   } catch (err) {
-    console.error(err);
-    message.textContent = "Erro ao transcrever";
+    message.textContent = "Erro ao transcrever o áudio.";
     transcribeBtn.disabled = false;
-    transcribeBtn.classList.remove("disabled");
   }
 });
 
-/* =========================
-   COPIAR TEXTO
-========================= */
+/* ================= COPIAR TEXTO ================= */
 copyBtn.addEventListener("click", () => {
-  if (!output.textContent) return;
   navigator.clipboard.writeText(output.textContent);
   alert("Texto copiado!");
 });
