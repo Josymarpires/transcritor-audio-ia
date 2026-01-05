@@ -90,6 +90,7 @@ transcribeBtn.addEventListener("click", async () => {
     message.textContent = "";
 
   } catch (err) {
+  
     message.textContent = "Erro ao transcrever o áudio.";
     transcribeBtn.disabled = false;
   }
